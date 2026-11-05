@@ -1,24 +1,34 @@
 import 'package:flutter/material.dart';
-
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../widgets/user_card.dart';
 
 class UserListScreen extends StatefulWidget {
   const UserListScreen({super.key});
+
   @override
   State<UserListScreen> createState() => _UserListScreenState();
 }
 
 class _UserListScreenState extends State<UserListScreen> {
   final ApiService _apiService = ApiService();
+  final TextEditingController _searchController = TextEditingController();
+
   List<User> _users = [];
+  List<User> _filteredUsers = [];
   bool _isLoading = true;
   String? _errorMessage;
+
   @override
   void initState() {
     super.initState();
     _loadUsers();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUsers() async {
@@ -26,18 +36,35 @@ class _UserListScreenState extends State<UserListScreen> {
       _isLoading = true;
       _errorMessage = null;
     });
+
     try {
       final users = await _apiService.getUsers();
+      if (!mounted) return;
       setState(() {
         _users = users;
+        _filteredUsers = users;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
       });
     }
+  }
+
+  void _filterUsers(String query) {
+    final filtered = _users.where((user) {
+      final nameLower = user.name.toLowerCase();
+      final emailLower = user.email.toLowerCase();
+      final searchLower = query.toLowerCase();
+      return nameLower.contains(searchLower) || emailLower.contains(searchLower);
+    }).toList();
+
+    setState(() {
+      _filteredUsers = filtered;
+    });
   }
 
   @override
@@ -55,12 +82,39 @@ class _UserListScreenState extends State<UserListScreen> {
           ),
         ],
       ),
-      body: _buildBody(),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              controller: _searchController,
+              onChanged: _filterUsers,
+              decoration: InputDecoration(
+                hintText: 'Cari berdasarkan nama atau email...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          _filterUsers('');
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+          ),
+          Expanded(child: _buildBody()),
+        ],
+      ),
     );
   }
 
   Widget _buildBody() {
-    // Loading state
     if (_isLoading) {
       return const Center(
         child: Column(
@@ -73,7 +127,7 @@ class _UserListScreenState extends State<UserListScreen> {
         ),
       );
     }
-    // Error state
+
     if (_errorMessage != null) {
       return Center(
         child: Padding(
@@ -104,22 +158,22 @@ class _UserListScreenState extends State<UserListScreen> {
         ),
       );
     }
-    // Empty state
-    if (_users.isEmpty) {
-      return const Center(child: Text('Tidak ada data pengguna'));
+
+    if (_filteredUsers.isEmpty) {
+      return const Center(
+        child: Text('Data pengguna tidak ditemukan'),
+      );
     }
-    // Success state
+
     return RefreshIndicator(
       onRefresh: _loadUsers,
       child: ListView.builder(
-        itemCount: _users.length,
+        itemCount: _filteredUsers.length,
         itemBuilder: (context, index) {
-          final user = _users[index];
+          final user = _filteredUsers[index];
           return UserCard(
             user: user,
-            onTap: () {
-              _showUserDetail(user);
-            },
+            onTap: () => _showUserDetail(user),
           );
         },
       ),

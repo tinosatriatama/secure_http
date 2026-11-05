@@ -6,6 +6,7 @@ class User {
   final String phone;
   final String website;
   final String companyName;
+
   User({
     required this.id,
     required this.name,
@@ -15,6 +16,7 @@ class User {
     required this.website,
     required this.companyName,
   });
+
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'] ?? 0,
@@ -26,7 +28,7 @@ class User {
       companyName: json['company']?['name'] ?? '',
     );
   }
-  // Inisial untuk avatar
+
   String get initial {
     if (name.isEmpty) return '?';
     return name[0].toUpperCase();
